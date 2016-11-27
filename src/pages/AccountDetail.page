@@ -1,0 +1,120 @@
+<apex:page showHeader="true" cache="false" standardController="Account" sidebar="true" extensions="AccountExtension">
+	
+	<apex:stylesheet value="{!URLFOR($Resource.boostrapsf1, 'css/bootstrap-namespaced.min.css')}" />
+	<apex:stylesheet value="{!URLFOR($Resource.SelectResources,'css/select2.min.css')}"/>
+	<apex:stylesheet value="{!URLFOR($Resource.SelectResources,'css/select2-bootstrap.css')}"/>
+	<apex:stylesheet value="{!URLFOR($Resource.SelectResources,'css/customStyle.css')}"/>
+
+	<apex:includeScript value="{!URLFOR($Resource.SelectResources,'js/jquery-1.11.3.min.js')}"/>
+	<apex:includeScript value="{!URLFOR($Resource.SelectResources,'js/bootstrap.min.js')}"/>	
+	<apex:includeScript value="{!URLFOR($Resource.SelectResources,'js/select2.min.js')}"/>	
+	
+	
+ 	<apex:form forceSSL="true">
+ 	<apex:detail subject="{!Account}" inlineEdit="true" relatedList="false" id="details"/>
+		<apex:pageBlock title="{! $Label.Related_Contacts }" id="relatedNetItems">
+			 <apex:pageBlockButtons location="top">
+		        <apex:commandButton id="editBtn" reRender="relatedNetItems" rendered="{!NOT(isEdit)}" action="{!editCnts}" value="{!$Label.Edit_Related_Contacts}" oncomplete="setSelect2(); return false;"></apex:commandButton>
+		    	<apex:outputPanel rendered="{!isEdit}">
+		        	<button onclick="console.log(JSON.stringify($('[id$=selectedContacts]').select2().val()));saveRecords(JSON.stringify($('[id$=selectedContacts]').select2().val()));return false;" class="btn btn-secondary">{!$Label.Save_Contacts}</button>
+				      	<button onclick="cancelEdit();return false;" class="btn btn-secondary">{!$Label.Cancel}</button>
+				</apex:outputPanel>
+		    </apex:pageBlockButtons>
+
+		    <apex:outputPanel layout="block" style="padding: 5px; border: 1px solid #e0e3e5;" rendered="{!NOT(additionalContacts.size > 0) && NOT(isEdit) }">
+		    	<apex:outputText >{!$Label.No_records_to_display}</apex:outputText> 
+		    </apex:outputPanel>
+			
+			<apex:pageBlockTable value="{!additionalContacts}" var="accCnt" rendered="{!NOT(isEdit) && (additionalContacts.size > 0)}">
+				<apex:column headerValue="{!$Label.Name}">
+		            <apex:outputLink value="{!'/' + accCnt.Contact__c}" >{!accCnt.Contact__r.FirstName + ' ' + accCnt.Contact__r.LastName}</apex:outputLink>
+		        </apex:column>
+		        <apex:column headerValue="{!$Label.Category}">
+		            <apex:outputLink value="{!'/' + accCnt.Contact__c}" >{!accCnt.Contact__r.Category__c}</apex:outputLink>
+		        </apex:column>
+		    </apex:pageBlockTable>
+
+			<apex:outputPanel rendered="{!isEdit}" layout="block" id="networksEdit">
+				<apex:selectList id="selectedContacts" styleClass="form-control select2" multiselect="true" html-hidden="true" value="{!selectedContacts}" html-placeholder="Select Network">
+	       			<apex:selectOptions value="{!allContacts}"/>
+		      	</apex:selectList>
+			</apex:outputPanel>					
+		</apex:pageBlock> 
+	</apex:form>
+	<apex:form >
+		<apex:actionFunction name="cancelEdit" action="{!cancelEdit}" reRender="relatedNetItems"/>
+		<apex:actionFunction name="saveRecords" action="{!saveCnt}" reRender="relatedNetItems, details">
+			<apex:param name="ids" value="" assignTo="{!editedContacts}"/>
+		</apex:actionFunction> 
+	</apex:form> 
+
+	<script type="text/javascript">
+
+	function setSelect2() {
+		var s2 = $('[id$=selectedContacts]').select2({
+			multiple: true,
+			maximumSelectionSize: 100,
+			minimumInputLength: 0,
+			tags: false,
+			formatResult: function (data, term) {
+			    return data;
+			},
+			formatSelection: function (data) {
+			    return data;
+			},
+			ajax: {
+				data: function(params) {
+					var queryParameters = {
+		                term: params.term
+		            }
+		            return queryParameters;
+		        },
+		        transport: function(queryParams, success) {
+		            var params = {
+		                'term': queryParams.data.term
+		            };
+		            var data = { results: [] };
+		            if (typeof params.term != "undefined" && params.term.trim().length >= 1) {
+		        		Visualforce.remoting.Manager.invokeAction(
+		        			'{!$RemoteAction.AccountExtension.searchContacts}',
+		                    params.term.toString(), 
+		                    function(result, event) {
+		                    	
+		                    	var res = JSON.parse(result);
+		                        if (event.status) {
+                                    //console.log('---' , res);
+									data.results = res;                
+									success({ results: data.results });
+						            
+						        } else if (event.type === 'exception') {
+									console.log(event.message);
+		                        } else {
+		                            console.log(event.message);
+		                        }
+		                    },
+		                    { buffer: false, escape: false, timeout: 30000 }
+						);			
+			        } else {
+			        	Visualforce.remoting.Manager.invokeAction(
+			        		'{!$RemoteAction.AccountExtension.getContacts}',
+		                    function(result, event) {
+		                    	var res = JSON.parse(result);
+		                        if (event.status) {
+                                    //console.log('--- getContacts --' , result);
+									data.results = res;
+									success({ results: data.results });
+						        } else if (event.type === 'exception') {
+									console.log(event.message);
+		                        } else {
+		                            console.log(event.message);
+		                        }
+		                    },
+		                    { buffer: false, escape: false, timeout: 30000 }
+						);			
+			        }
+		        }
+		    }
+		});
+	}
+	</script>
+</apex:page>

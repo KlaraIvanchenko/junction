@@ -1,0 +1,728 @@
+{
+	"auto_complete":
+	{
+		"selected_items":
+		[
+			[
+				"is",
+				"PUBLIC isNotEmpty(String str) 	Boolean"
+			],
+			[
+				"ad",
+				"addCategory"
+			],
+			[
+				"a",
+				"accountsMap"
+			],
+			[
+				"pu",
+				"public"
+			],
+			[
+				"isn",
+				"PUBLIC isNotBlank(String str) 	Boolean"
+			],
+			[
+				"n",
+				"newMap"
+			],
+			[
+				"Co",
+				"Contact"
+			],
+			[
+				"Acco",
+				"Account"
+			],
+			[
+				"isU",
+				"isUpdate"
+			],
+			[
+				"ol",
+				"oldMap"
+			],
+			[
+				"i",
+				"isDelete"
+			],
+			[
+				"Acc",
+				"Account__r"
+			],
+			[
+				"Ac",
+				"Account"
+			],
+			[
+				"get",
+				"PUBLIC get(ANY key) 	String"
+			],
+			[
+				"re",
+				"removedAccCategories"
+			],
+			[
+				"key",
+				"keySet"
+			],
+			[
+				"acco",
+				"Account__c"
+			],
+			[
+				"acc",
+				"accCnt"
+			],
+			[
+				"I",
+				"IN"
+			],
+			[
+				"A",
+				"Account"
+			],
+			[
+				"C",
+				"Contact__r"
+			],
+			[
+				"c",
+				"contains"
+			],
+			[
+				"ACc",
+				"Account__c"
+			],
+			[
+				"co",
+				"contactIds"
+			],
+			[
+				"F",
+				"FirstName"
+			],
+			[
+				"Contact",
+				"Contact__c"
+			],
+			[
+				"y",
+				"PUBLIC yourBookingsSlotsMap	Map"
+			],
+			[
+				"da",
+				"PUBLIC DAY_AVAILABILITY_CHAIRS_FULL	String"
+			],
+			[
+				"Nu",
+				"NULL"
+			],
+			[
+				"check",
+				"checkWorkingHours"
+			],
+			[
+				"O",
+				"Other_Day_End_Time__c 	Number"
+			],
+			[
+				"d",
+				"double"
+			],
+			[
+				"strvalue",
+				"stringValue"
+			],
+			[
+				"W",
+				"Working_Hours__c"
+			],
+			[
+				"Date",
+				"DateTime"
+			],
+			[
+				"St",
+				"Start_Time__c 	Picklist"
+			],
+			[
+				"art",
+				"artistAvailabilities"
+			]
+		]
+	},
+	"buffers":
+	[
+		{
+			"file": "src/pages/AccountDetail.page",
+			"settings":
+			{
+				"buffer_size": 5674,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "src/classes/AccountExtension.cls",
+			"settings":
+			{
+				"buffer_size": 5884,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "src/triggers/AccountContactTrigger.trigger",
+			"settings":
+			{
+				"buffer_size": 405,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"contents": "public without sharing class AccountContactTriggerHandler {\n\n    public static void addCategory(Map<Id, AccountContact__c> newAccContactsMap) {\n\n        List<AccountContact__c> accContactsList = [\n        	SELECT Id, Account__c, Account__r.Category__c, Contact__c, Contact__r.Category__c\n        	FROM AccountContact__c\n        	WHERE Id IN: newAccContactsMap.keySet() AND Contact__r.Category__c != NULL\n        ];\n        \n        Map<Id, Account> accountsMap = addCategories(new Map<Id, Account>(), accContactsList);\n        \n        update accountsMap.values();\n    }\n\n    public static Map<String, List<AccountContact__c>> prepareCategoriesMap(List<AccountContact__c> accountContactsList) {\n    	Map<String, List<AccountContact__c>> categoriesMap = new Map<String, List<AccountContact__c>>();\n    	for (AccountContact__c accCnt : accountContactsList) {\n        	String key = accCnt.Account__c + accCnt.Contact__r.Category__c;\n        	if (categoriesMap.containsKey(key)) {\n        		categoriesMap.get(key).add(accCnt);\n        	} else {\n        		categoriesMap.put(key, new List<AccountContact__c> {accCnt});\n        	}\n        }\n        return categoriesMap;\n    }\n\n    public static void removeCategory(List<AccountContact__c> deletedAccContacts) {\n        Set<Id> accIds = new Set<Id>();\n        Set<Id> accCntIds = new Set<Id>();\n\n        for (AccountContact__c accCnt : deletedAccContacts) {\n            accIds.add(accCnt.Account__c);\n            accCntIds.add(accCnt.Id);\n        }\n\n        List<AccountContact__c> deletedAccountContacts = [\n        	SELECT Id, Account__c, Account__r.Category__c, Contact__c, Contact__r.Category__c\n        	FROM AccountContact__c\n        	WHERE Id IN: accCntIds AND Contact__r.Category__c != NULL\n        ];\n\n        Map<String, List<AccountContact__c>> removedAccCategories = prepareCategoriesMap(deletedAccountContacts);\n\n        List<AccountContact__c> allAccountContacts = [\n        	SELECT Id, Account__c, Account__r.Category__c, Contact__c, Contact__r.Category__c\n        	FROM AccountContact__c\n        	WHERE Account__c IN: accIds AND Contact__r.Category__c != NULL\n        ];\n        \n        Map<String, List<AccountContact__c>> accCategories = prepareCategoriesMap(allAccountContacts);\n        updateAccountCategories(removedAccCategories, accCategories);\n       \n    }\n\n    public static void updateAccountCategories(Map<String, List<AccountContact__c>> removedAccCategories, Map<String, List<AccountContact__c>> accCategories) {\n    	 Map<Id, Account> accountsMap = new Map<Id, Account>();\n\n        for (String key : removedAccCategories.keySet()) {\n        	if (accCategories.get(key).size() - removedAccCategories.get(key).size() == 0) {\n        		AccountContact__c accCnt = removedAccCategories.get(key).get(0);\n    		    String category = accCnt.Contact__r.Category__c;\n                Pattern categoryPatt = Pattern.compile('(;' + category + ')|(' + category + ';)|(' + category + ')');\n                \n        		if (accountsMap.containsKey(accCnt.Account__c)) {\n        			String newMultiPckilistValue = categoryPatt.matcher(accountsMap.get(accCnt.Account__c).Category__c).replaceFirst('');\n					accountsMap.get(accCnt.Account__c).Category__c = newMultiPckilistValue;\n	        	} else {\n	        		String newMultiPckilistValue = categoryPatt.matcher(accCnt.Account__r.Category__c).replaceFirst('');\n                    accCnt.Account__r.Category__c = newMultiPckilistValue;\n        			accountsMap.put(accCnt.Account__c, (Account)accCnt.getSObject('Account__r'));\n	        	}\n        	}\n        }\n        update accountsMap.values();\n    }\n\n    public static void updateCategory(Map<Id, Contact> oldContactMap, Map<Id, Contact> newContactMap) {\n\n    	List<AccountContact__c> deletedAccountContacts = [\n	    	SELECT Id, Account__c, Account__r.Category__c, Contact__c, Contact__r.Category__c\n	    	FROM AccountContact__c\n	    	WHERE Contact__c IN: oldContactMap.keySet() \n	    ]; \n	    Map<Id, Account> accMap = new Map<Id, Account>();\n	    Map<Id, Contact> accMap = new Map<Id, Contact>();\n	    for () {\n	    	\n	    }\n	    /*List<AccountContact__c> deletedAccountContacts = [\n	    	SELECT Id, Account__c, Account__r.Category__c, Contact__c, Contact__r.Category__c\n	    	FROM AccountContact__c\n	    	WHERE Contact__c IN: oldContactMap.keySet() \n	    ];\n\n	    Set<Id> accIds = new Set<Id>();\n	    for (AccountContact__c accCnt : deletedAccountContacts) {\n	        accIds.add(accCnt.Account__c);\n	    }\n\n	    Map<String, List<AccountContact__c>> removedAccCategories = new Map<String, List<AccountContact__c>>();\n\n	    for (AccountContact__c accCnt : deletedAccountContacts) {\n\n	    	if (String.isNotBlank(oldContactMap.get(accCnt.Contact__c).Category__c)) {\n	    		String key = accCnt.Account__c + oldContactMap.get(accCnt.Contact__c).Category__c;\n		    	accCnt.Contact__r.Category__c = oldContactMap.get(accCnt.Contact__c).Category__c;\n		    	if (removedAccCategories.containsKey(key)) {\n		    		removedAccCategories.get(key).add(accCnt);\n		    	} else {\n		    		removedAccCategories.put(key, new List<AccountContact__c> {accCnt});\n		    	}\n	    	}\n	    	\n	    }\n\n	    List<AccountContact__c> allAccountContacts = [\n	    	SELECT Id, Account__c, Account__r.Category__c, Contact__c, Contact__r.Category__c\n	    	FROM AccountContact__c\n	    	WHERE Account__c IN: accIds \n	    ];\n	    \n	    Map<String, List<AccountContact__c>> sortedAccCategories = new Map<String, List<AccountContact__c>>();\n\n	    for (AccountContact__c accCnt : allAccountContacts) {\n	    	if (String.isNotBlank(oldContactMap.get(accCnt.Contact__c).Category__c)) {\n	    	//if (String.isNotBlank(oldContactMap.get(accCnt.Contact__c).get('Category__c'))) {\n		    	String key = accCnt.Account__c + oldContactMap.get(accCnt.Contact__c).Category__c;\n		    	accCnt.Contact__r.Category__c = oldContactMap.get(accCnt.Contact__c).Category__c;\n		    	if (sortedAccCategories.containsKey(key)) {\n		    		sortedAccCategories.get(key).add(accCnt);\n		    	} else {\n		    		sortedAccCategories.put(key, new List<AccountContact__c> {accCnt});\n		    	}\n		    }\n	    }\n\n	    Map<Id, Account> accountsMap = new Map<Id, Account>();\n	    accountsMap = removeCategories(removedAccCategories, sortedAccCategories) ;\n	    accountsMap = addCategories(accountsMap, deletedAccountContacts);\n        update accountsMap.values();*/\n    }\n\n    public static Map<Id, Account> removeCategories(Map<String, List<AccountContact__c>> removedAccCategories,  Map<String, List<AccountContact__c>> sortedAccCategories) {\n    	Map<Id, Account> accountsMap = new Map<Id, Account>();\n\n    	for (String key : removedAccCategories.keySet()) {\n	    	if (sortedAccCategories.get(key).size() - removedAccCategories.get(key).size() == 0) {\n	    		AccountContact__c accCnt = removedAccCategories.get(key).get(0);\n	    		String category = accCnt.Contact__r.Category__c;\n                Pattern categoryPatt = Pattern.compile('(;' + category + ')|(' + category + ';)|(' + category + ')');               \n	    		if (accountsMap.containsKey(accCnt.Account__c)) {\n	    			String newMultiPckilistValue = categoryPatt.matcher(accountsMap.get(accCnt.Account__c).Category__c).replaceFirst('');\n					accountsMap.get(accCnt.Account__c).Category__c = newMultiPckilistValue;\n	        	} else {\n	        		String newMultiPckilistValue = categoryPatt.matcher(accCnt.Account__r.Category__c).replaceFirst('');\n	                accCnt.Account__r.Category__c = newMultiPckilistValue;\n	    			accountsMap.put(accCnt.Account__c, (Account)accCnt.getSObject('Account__r'));\n	        	}\n	    	}\n	    }\n\n	    return accountsMap;\n    }\n\n    public static Map<Id, Account> addCategories(Map<Id, Account> accountsMap, List<AccountContact__c> accContactsList) {\n\n    	for (AccountContact__c accCnt : accContactsList) {\n        	//if ( String.isNotBlank(accCnt.Contact__r.Category__c)) {\n        		if (accountsMap.containsKey(accCnt.Account__c)) {\n	        		if (! accountsMap.get(accCnt.Account__c).Category__c.contains(accCnt.Contact__r.Category__c)) {\n	        			accountsMap.get(accCnt.Account__c).Category__c += ';' + accCnt.Contact__r.Category__c;\n	        		}\n	        	} else {\n	        		if (String.isNotBlank(accCnt.Account__r.Category__c) && ! accCnt.Account__r.Category__c.contains(accCnt.Contact__r.Category__c)) { \n	        			accCnt.Account__r.Category__c += ';' + accCnt.Contact__r.Category__c;\n	        			//accountsMap.put(accCnt.Account__c, (Account)accCnt.getSObject('Account__r'));\n	        		} else if (String.isBlank(accCnt.Account__r.Category__c)) {\n	        			accCnt.Account__r.Category__c = accCnt.Contact__r.Category__c;\n	        			//accountsMap.put(accCnt.Account__c, (Account)accCnt.getSObject('Account__r'));\n	        		}\n	        		accountsMap.put(accCnt.Account__c, (Account)accCnt.getSObject('Account__r'));\n	        	}\n        	//}       	\n        	\n        }\n\n        return accountsMap;\n    }\n}",
+			"file": "src/classes/AccountContactTriggerHandler.cls",
+			"file_size": 8574,
+			"file_write_time": 131093794784976020,
+			"settings":
+			{
+				"buffer_size": 8881,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"contents": "Package Control Messages\n========================\n\nSublimerge Pro\n--------------\n\n  Sublimerge has just been upgraded to version 2.10.6\n  \n  It is highly recommended to restart Sublime Text before use.\n  ------------------------------------------------------------\n  \n  \n  What's new?\n  ===========\n  \n  Bug fixes:\n    - Fixed bug that could cause the last character of the file to disappear.\n    - Better compatibility with latest Sublime Text 3 builds.\n  \n  Enhancements:\n    - A few diff algorithm optimalizations.\n  \n  \n  Licensing\n  =========\n  \n  If you like Sublimerge, please support development by buying a license. It doesn't cost much! :)\n  \n  http://www.sublimerge.com/\n  \n  \n  By the way...\n  =============\n  Take a break from your work and play my BF's Draughts on your iOS device!\n  Available on the App Store! :)\n  \n  http://www.bfdraughts.com/as/\n",
+			"settings":
+			{
+				"buffer_size": 864,
+				"line_ending": "Windows",
+				"name": "Package Control Messages",
+				"read_only": true,
+				"scratch": true
+			}
+		},
+		{
+			"contents": "public without sharing class AccountContactTriggerHandler {\n\n    public static void addCategory(Map<Id, AccountContact__c> newAccContactsMap) {\n\n        List<AccountContact__c> accContactsList = [\n        	SELECT Id, Account__c, Account__r.Category__c, Contact__c, Contact__r.Category__c\n        	FROM AccountContact__c\n        	WHERE Id IN: newAccContactsMap.keySet()\n        ];\n        \n        Map<Id, Account> accountsMap = addCategories(new Map<Id, Account>(), accContactsList);\n        \n        update accountsMap.values();\n    }\n\n    public static void removeCategory(List<AccountContact__c> deletedAccContacts) {\n        Set<Id> accIds = new Set<Id>();\n        Set<Id> accCntIds = new Set<Id>();\n        for (AccountContact__c accCnt : deletedAccContacts) {\n            accIds.add(accCnt.Account__c);\n            accCntIds.add(accCnt.Id);\n        }\n        List<AccountContact__c> deletedAccountContacts = [\n        	SELECT Id, Account__c, Account__r.Category__c, Contact__c, Contact__r.Category__c\n        	FROM AccountContact__c\n        	WHERE Id IN: accCntIds\n        ];\n\n        Map<String, List<AccountContact__c>> removedAccCategories = new Map<String, List<AccountContact__c>>();\n\n        for (AccountContact__c accCnt : deletedAccountContacts) {\n        	String key = accCnt.Account__c + accCnt.Contact__r.Category__c;\n        	if (removedAccCategories.containsKey(key)) {\n        		removedAccCategories.get(key).add(accCnt);\n        	} else {\n        		removedAccCategories.put(key, new List<AccountContact__c> {accCnt});\n        	}\n        }\n\n\n        List<AccountContact__c> allAccountContacts = [\n        	SELECT Id, Account__c, Account__r.Category__c, Contact__c, Contact__r.Category__c\n        	FROM AccountContact__c\n        	WHERE Account__c IN: accIds\n        ];\n        \n        Map<String, List<AccountContact__c>> sortedAccCategories = new Map<String, List<AccountContact__c>>();\n\n        for (AccountContact__c accCnt : allAccountContacts) {\n        	String key = accCnt.Account__c + accCnt.Contact__r.Category__c;\n        	if (sortedAccCategories.containsKey(key)) {\n        		sortedAccCategories.get(key).add(accCnt);\n        	} else {\n        		sortedAccCategories.put(key, new List<AccountContact__c> {accCnt});\n        	}\n        }\n\n        Map<Id, Account> accountsMap = new Map<Id, Account>();\n\n        for (String key : removedAccCategories.keySet()) {\n        	if (sortedAccCategories.get(key).size() - removedAccCategories.get(key).size() == 0) {\n        		AccountContact__c accCnt = removedAccCategories.get(key).get(0);\n    		    String category = accCnt.Contact__r.Category__c;\n                Pattern categoryPatt = Pattern.compile('(;' + category + ')|(' + category + ';)|(' + category + ')');\n                String newMultiPckilistValue = categoryPatt.matcher(accountsMap.get(accCnt.Account__c).Category__c).replaceFirst('');\n        		if (accountsMap.containsKey(accCnt.Account__c)) {\n					accountsMap.get(accCnt.Account__c).Category__c = newMultiPckilistValue;\n	        	} else {\n                    accCnt.Account__r.Category__c = newMultiPckilistValue;\n        			accountsMap.put(accCnt.Account__c, (Account)accCnt.getSObject('Account__r'));\n	        	}\n        	}\n        }\n        update accountsMap.values();\n    }\n\n    public static void updateCategory(Map<Id, Contact> oldContactMap, Map<Id, Contact> newContactMap) {\n\n	    List<AccountContact__c> deletedAccountContacts = [\n	    	SELECT Id, Account__c, Account__r.Category__c, Contact__c, Contact__r.Category__c\n	    	FROM AccountContact__c\n	    	WHERE Contact__c IN: oldContactMap.keySet()\n	    ];\n\n	    Set<Id> accIds = new Set<Id>();\n	    for (AccountContact__c accCnt : deletedAccountContacts) {\n	        accIds.add(accCnt.Account__c);\n	    }\n\n	    Map<String, List<AccountContact__c>> removedAccCategories = new Map<String, List<AccountContact__c>>();\n\n	    for (AccountContact__c accCnt : deletedAccountContacts) {\n	    	String key = accCnt.Account__c + oldContactMap.get(accCnt.Contact__c).Category__c;\n	    	accCnt.Contact__r.Category__c = oldContactMap.get(accCnt.Contact__c).Category__c;\n	    	if (removedAccCategories.containsKey(key)) {\n	    		removedAccCategories.get(key).add(accCnt);\n	    	} else {\n	    		removedAccCategories.put(key, new List<AccountContact__c> {accCnt});\n	    	}\n	    }\n\n	    List<AccountContact__c> allAccountContacts = [\n	    	SELECT Id, Account__c, Account__r.Category__c, Contact__c, Contact__r.Category__c\n	    	FROM AccountContact__c\n	    	WHERE Account__c IN: accIds\n	    ];\n	    \n	    Map<String, List<AccountContact__c>> sortedAccCategories = new Map<String, List<AccountContact__c>>();\n\n	    for (AccountContact__c accCnt : allAccountContacts) {\n	    	String key = accCnt.Account__c + oldContactMap.get(accCnt.Contact__c).Category__c;\n	    	accCnt.Contact__r.Category__c = oldContactMap.get(accCnt.Contact__c).Category__c;\n	    	if (sortedAccCategories.containsKey(key)) {\n	    		sortedAccCategories.get(key).add(accCnt);\n	    	} else {\n	    		sortedAccCategories.put(key, new List<AccountContact__c> {accCnt});\n	    	}\n	    }\n\n	    Map<Id, Account> accountsMap = new Map<Id, Account>();\n	    accountsMap = removeCategories(removedAccCategories, sortedAccCategories) ;\n	    accountsMap = addCategories(accountsMap, deletedAccountContacts);\n        update accountsMap.values();\n    }\n\n    public static Map<Id, Account> removeCategories(Map<String, List<AccountContact__c>> removedAccCategories,  Map<String, List<AccountContact__c>> sortedAccCategories) {\n    	Map<Id, Account> accountsMap = new Map<Id, Account>();\n\n    	for (String key : removedAccCategories.keySet()) {\n	    	if (sortedAccCategories.get(key).size() - removedAccCategories.get(key).size() == 0) {\n	    		AccountContact__c accCnt = removedAccCategories.get(key).get(0);\n	    		String category = accCnt.Contact__r.Category__c;\n                Pattern categoryPatt = Pattern.compile('(;' + category + ')|(' + category + ';)|(' + category + ')');\n                String newMultiPckilistValue = categoryPatt.matcher(accountsMap.get(accCnt.Account__c).Category__c).replaceFirst('');\n	    		if (accountsMap.containsKey(accCnt.Account__c)) {\n					accountsMap.get(accCnt.Account__c).Category__c = newMultiPckilistValue;\n	        	} else {\n	                accCnt.Account__r.Category__c = newMultiPckilistValue;\n	    			accountsMap.put(accCnt.Account__c, (Account)accCnt.getSObject('Account__r'));\n	        	}\n	    	}\n	    }\n\n	    return accountsMap;\n    }\n\n    public static Map<Id, Account> addCategories(Map<Id, Account> accountsMap, List<AccountContact__c> accContactsList) {\n\n    	for (AccountContact__c accCnt : accContactsList) {\n        	if ( String.isNotBlank(accCnt.Contact__r.Category__c)) {\n        		if (accountsMap.containsKey(accCnt.Account__c)) {\n	        		if (! accountsMap.get(accCnt.Account__c).Category__c.contains(accCnt.Contact__r.Category__c)) {\n	        			accountsMap.get(accCnt.Account__c).Category__c += ';' + accCnt.Contact__r.Category__c;\n	        		}\n	        	} else {\n	        		if (String.isNotBlank(accCnt.Account__r.Category__c) && ! accCnt.Account__r.Category__c.contains(accCnt.Contact__r.Category__c)) { \n	        			accCnt.Account__r.Category__c += ';' + accCnt.Contact__r.Category__c;\n	        			//accountsMap.put(accCnt.Account__c, (Account)accCnt.getSObject('Account__r'));\n	        		} else if (String.isBlank(accCnt.Account__r.Category__c)) {\n	        			accCnt.Account__r.Category__c = accCnt.Contact__r.Category__c;\n	        			//accountsMap.put(accCnt.Account__c, (Account)accCnt.getSObject('Account__r'));\n	        		}\n	        		accountsMap.put(accCnt.Account__c, (Account)accCnt.getSObject('Account__r'));\n	        	}\n        	}       	\n        	\n        }\n\n        return accountsMap;\n    }\n}",
+			"settings":
+			{
+				"buffer_size": 7755,
+				"line_ending": "Windows"
+			}
+		},
+		{
+			"contents": "public without sharing class AccountContactTriggerHandler {\n\n    public static void addCategory(Map<Id, AccountContact__c> newAccContactsMap) {\n\n        List<AccountContact__c> accContactsList = [\n        	SELECT Id, Account__c, Account__r.Category__c, Contact__c, Contact__r.Category__c\n        	FROM AccountContact__c\n        	WHERE Id IN: newAccContactsMap.keySet() AND Contact__r.Category__c != NULL\n        ];\n        \n        Map<Id, Account> accountsMap = addCategories(new Map<Id, Account>(), accContactsList);\n        \n        update accountsMap.values();\n    }\n\n    public static Map<String, List<AccountContact__c>> prepareCategoriesMap(List<AccountContact__c> accountContactsList) {\n    	Map<String, List<AccountContact__c>> categoriesMap = new Map<String, List<AccountContact__c>>();\n    	for (AccountContact__c accCnt : accountContactsList) {\n        	String key = accCnt.Account__c + accCnt.Contact__r.Category__c;\n        	if (categoriesMap.containsKey(key)) {\n        		categoriesMap.get(key).add(accCnt);\n        	} else {\n        		categoriesMap.put(key, new List<AccountContact__c> {accCnt});\n        	}\n        }\n        return categoriesMap;\n    }\n\n    public static void removeCategory(List<AccountContact__c> deletedAccContacts) {\n        Set<Id> accIds = new Set<Id>();\n        Set<Id> accCntIds = new Set<Id>();\n\n        for (AccountContact__c accCnt : deletedAccContacts) {\n            accIds.add(accCnt.Account__c);\n            accCntIds.add(accCnt.Id);\n        }\n\n        List<AccountContact__c> deletedAccountContacts = [\n        	SELECT Id, Account__c, Account__r.Category__c, Contact__c, Contact__r.Category__c\n        	FROM AccountContact__c\n        	WHERE Id IN: accCntIds AND Contact__r.Category__c != NULL\n        ];\n\n        Map<String, List<AccountContact__c>> removedAccCategories = prepareCategoriesMap();\n\n        for (AccountContact__c accCnt : deletedAccountContacts) {\n        	String key = accCnt.Account__c + accCnt.Contact__r.Category__c;\n        	if (removedAccCategories.containsKey(key)) {\n        		removedAccCategories.get(key).add(accCnt);\n        	} else {\n        		removedAccCategories.put(key, new List<AccountContact__c> {accCnt});\n        	}\n        }\n\n\n        List<AccountContact__c> allAccountContacts = [\n        	SELECT Id, Account__c, Account__r.Category__c, Contact__c, Contact__r.Category__c\n        	FROM AccountContact__c\n        	WHERE Account__c IN: accIds AND Contact__r.Category__c != NULL\n        ];\n        \n        Map<String, List<AccountContact__c>> sortedAccCategories = new Map<String, List<AccountContact__c>>();\n\n        for (AccountContact__c accCnt : allAccountContacts) {\n        	String key = accCnt.Account__c + accCnt.Contact__r.Category__c;\n        	if (sortedAccCategories.containsKey(key)) {\n        		sortedAccCategories.get(key).add(accCnt);\n        	} else {\n        		sortedAccCategories.put(key, new List<AccountContact__c> {accCnt});\n        	}\n        }\n\n\n\n        Map<Id, Account> accountsMap = new Map<Id, Account>();\n\n        for (String key : removedAccCategories.keySet()) {\n        	if (sortedAccCategories.get(key).size() - removedAccCategories.get(key).size() == 0) {\n        		AccountContact__c accCnt = removedAccCategories.get(key).get(0);\n    		    String category = accCnt.Contact__r.Category__c;\n                Pattern categoryPatt = Pattern.compile('(;' + category + ')|(' + category + ';)|(' + category + ')');\n                \n        		if (accountsMap.containsKey(accCnt.Account__c)) {\n        			String newMultiPckilistValue = categoryPatt.matcher(accountsMap.get(accCnt.Account__c).Category__c).replaceFirst('');\n					accountsMap.get(accCnt.Account__c).Category__c = newMultiPckilistValue;\n	        	} else {\n	        		String newMultiPckilistValue = categoryPatt.matcher(accCnt.Account__r.Category__c).replaceFirst('');\n                    accCnt.Account__r.Category__c = newMultiPckilistValue;\n        			accountsMap.put(accCnt.Account__c, (Account)accCnt.getSObject('Account__r'));\n	        	}\n        	}\n        }\n        update accountsMap.values();\n    }\n\n    public static void updateCategory(Map<Id, Contact> oldContactMap, Map<Id, Contact> newContactMap) {\n\n	    List<AccountContact__c> deletedAccountContacts = [\n	    	SELECT Id, Account__c, Account__r.Category__c, Contact__c, Contact__r.Category__c\n	    	FROM AccountContact__c\n	    	WHERE Contact__c IN: oldContactMap.keySet() AND Contact__r.Category__c != NULL\n	    ];\n\n	    Set<Id> accIds = new Set<Id>();\n	    for (AccountContact__c accCnt : deletedAccountContacts) {\n	        accIds.add(accCnt.Account__c);\n	    }\n\n	    Map<String, List<AccountContact__c>> removedAccCategories = new Map<String, List<AccountContact__c>>();\n\n	    for (AccountContact__c accCnt : deletedAccountContacts) {\n\n	    	if (String.isNotBlank(oldContactMap.get(accCnt.Contact__c).Category__c)) {\n	    		String key = accCnt.Account__c + oldContactMap.get(accCnt.Contact__c).Category__c;\n		    	accCnt.Contact__r.Category__c = oldContactMap.get(accCnt.Contact__c).Category__c;\n		    	if (removedAccCategories.containsKey(key)) {\n		    		removedAccCategories.get(key).add(accCnt);\n		    	} else {\n		    		removedAccCategories.put(key, new List<AccountContact__c> {accCnt});\n		    	}\n	    	}\n	    	\n	    }\n\n	    List<AccountContact__c> allAccountContacts = [\n	    	SELECT Id, Account__c, Account__r.Category__c, Contact__c, Contact__r.Category__c\n	    	FROM AccountContact__c\n	    	WHERE Account__c IN: accIds AND Contact__r.Category__c != NULL\n	    ];\n	    \n	    Map<String, List<AccountContact__c>> sortedAccCategories = new Map<String, List<AccountContact__c>>();\n\n	    for (AccountContact__c accCnt : allAccountContacts) {\n	    	if (String.isNotBlank(oldContactMap.get(accCnt.Contact__c).Category__c)) {\n	    	//if (String.isNotBlank(oldContactMap.get(accCnt.Contact__c).get('Category__c'))) {\n		    	String key = accCnt.Account__c + oldContactMap.get(accCnt.Contact__c).Category__c;\n		    	accCnt.Contact__r.Category__c = oldContactMap.get(accCnt.Contact__c).Category__c;\n		    	if (sortedAccCategories.containsKey(key)) {\n		    		sortedAccCategories.get(key).add(accCnt);\n		    	} else {\n		    		sortedAccCategories.put(key, new List<AccountContact__c> {accCnt});\n		    	}\n		    }\n	    }\n\n	    Map<Id, Account> accountsMap = new Map<Id, Account>();\n	    accountsMap = removeCategories(removedAccCategories, sortedAccCategories) ;\n	    accountsMap = addCategories(accountsMap, deletedAccountContacts);\n        update accountsMap.values();\n    }\n\n    public static Map<Id, Account> removeCategories(Map<String, List<AccountContact__c>> removedAccCategories,  Map<String, List<AccountContact__c>> sortedAccCategories) {\n    	Map<Id, Account> accountsMap = new Map<Id, Account>();\n\n    	for (String key : removedAccCategories.keySet()) {\n	    	if (sortedAccCategories.get(key).size() - removedAccCategories.get(key).size() == 0) {\n	    		AccountContact__c accCnt = removedAccCategories.get(key).get(0);\n	    		String category = accCnt.Contact__r.Category__c;\n                Pattern categoryPatt = Pattern.compile('(;' + category + ')|(' + category + ';)|(' + category + ')');               \n	    		if (accountsMap.containsKey(accCnt.Account__c)) {\n	    			String newMultiPckilistValue = categoryPatt.matcher(accountsMap.get(accCnt.Account__c).Category__c).replaceFirst('');\n					accountsMap.get(accCnt.Account__c).Category__c = newMultiPckilistValue;\n	        	} else {\n	        		String newMultiPckilistValue = categoryPatt.matcher(accCnt.Account__r.Category__c).replaceFirst('');\n	                accCnt.Account__r.Category__c = newMultiPckilistValue;\n	    			accountsMap.put(accCnt.Account__c, (Account)accCnt.getSObject('Account__r'));\n	        	}\n	    	}\n	    }\n\n	    return accountsMap;\n    }\n\n    public static Map<Id, Account> addCategories(Map<Id, Account> accountsMap, List<AccountContact__c> accContactsList) {\n\n    	for (AccountContact__c accCnt : accContactsList) {\n        	//if ( String.isNotBlank(accCnt.Contact__r.Category__c)) {\n        		if (accountsMap.containsKey(accCnt.Account__c)) {\n	        		if (! accountsMap.get(accCnt.Account__c).Category__c.contains(accCnt.Contact__r.Category__c)) {\n	        			accountsMap.get(accCnt.Account__c).Category__c += ';' + accCnt.Contact__r.Category__c;\n	        		}\n	        	} else {\n	        		if (String.isNotBlank(accCnt.Account__r.Category__c) && ! accCnt.Account__r.Category__c.contains(accCnt.Contact__r.Category__c)) { \n	        			accCnt.Account__r.Category__c += ';' + accCnt.Contact__r.Category__c;\n	        			//accountsMap.put(accCnt.Account__c, (Account)accCnt.getSObject('Account__r'));\n	        		} else if (String.isBlank(accCnt.Account__r.Category__c)) {\n	        			accCnt.Account__r.Category__c = accCnt.Contact__r.Category__c;\n	        			//accountsMap.put(accCnt.Account__c, (Account)accCnt.getSObject('Account__r'));\n	        		}\n	        		accountsMap.put(accCnt.Account__c, (Account)accCnt.getSObject('Account__r'));\n	        	}\n        	//}       	\n        	\n        }\n\n        return accountsMap;\n    }\n}",
+			"settings":
+			{
+				"buffer_size": 9050,
+				"line_ending": "Windows"
+			}
+		}
+	],
+	"build_system": "",
+	"build_system_choices":
+	[
+	],
+	"build_varint": "",
+	"command_palette":
+	{
+		"height": 392.0,
+		"last_filter": "Package Control: ",
+		"selected_items":
+		[
+			[
+				"Package Control: ",
+				"Package Control: Install Package"
+			],
+			[
+				"Package Control: in",
+				"Package Control: Install Package"
+			]
+		],
+		"width": 400.0
+	},
+	"console":
+	{
+		"height": 126.0,
+		"history":
+		[
+			"import urllib.request,os,hashlib; h = '2915d1851351e5ee549c20394736b442' + '8bc59f460fa1548d1514676163dafc88'; pf = 'Package Control.sublime-package'; ipp = sublime.installed_packages_path(); urllib.request.install_opener( urllib.request.build_opener( urllib.request.ProxyHandler()) ); by = urllib.request.urlopen( 'http://packagecontrol.io/' + pf.replace(' ', '%20')).read(); dh = hashlib.sha256(by).hexdigest(); print('Error validating download (got %s instead of %s), please try manual install' % (dh, h)) if dh != h else open(os.path.join( ipp, pf), 'wb' ).write(by)"
+		]
+	},
+	"distraction_free":
+	{
+		"menu_visible": true,
+		"show_minimap": false,
+		"show_open_files": false,
+		"show_tabs": false,
+		"side_bar_visible": false,
+		"status_bar_visible": false
+	},
+	"expanded_folders":
+	[
+		"/D/Proga/MavensMateProjects/Parx Test",
+		"/D/Proga/MavensMateProjects/Parx Test/src",
+		"/D/Proga/MavensMateProjects/Parx Test/src/classes",
+		"/D/Proga/MavensMateProjects/Parx Test/src/triggers"
+	],
+	"file_history":
+	[
+		"/D/Proga/MavensMateProjects/Parx Test/src/triggers/ContactTrigger.trigger",
+		"/D/Proga/MavensMateProjects/Parx Test/src/classes/AccountExtension.cls",
+		"/D/Proga/MavensMateProjects/MBA - Cognizant dev sb/src/pages/CC_NewApplicationPage.page",
+		"/D/Proga/MavensMateProjects/CT(Sandbox)/src/triggers/LeadFromWeb.trigger",
+		"/D/Proga/MavensMateProjects/CT(Sandbox)/src/triggers/SendWishListsToMagento.trigger",
+		"/D/Proga/MavensMateProjects/CT(Sandbox)/src/classes/JSONHelper.cls",
+		"/D/Proga/MavensMateProjects/CT(Sandbox)/src/classes/RestClient.cls",
+		"/D/Proga/MavensMateProjects/CT(Sandbox)/src/classes/MagentoConnector.cls",
+		"/D/Proga/MavensMateProjects/CT(Sandbox)/src/classes/RequestYourArtistCtrl.cls",
+		"/D/Proga/MavensMateProjects/CT(Sandbox)/src/classes/ChooseYourMomentCtrl.cls",
+		"/D/Proga/MavensMateProjects/CT(Sandbox)/src/classes/ConfirmBookingCtrl.cls",
+		"/D/Proga/MavensMateProjects/CT(Sandbox)/src/pages/RequestYourArtist.page",
+		"/D/Proga/MavensMateProjects/CT(Sandbox)/src/pages/ChooseYourMoment.page",
+		"/D/Proga/MavensMateProjects/CT(Sandbox)/src/classes/BookingSlotsTriggerHandler.cls",
+		"/D/Proga/MavensMateProjects/CT(Sandbox)/src/classes/RequestYourArtistTest.cls",
+		"/D/Proga/MavensMateProjects/CT(Sandbox)/old BookingSlotsTriggerHandler",
+		"/D/Proga/MavensMateProjects/CT(Sandbox)/src/classes/ConfirmBookingTest.cls",
+		"/D/Proga/MavensMateProjects/CT(Sandbox)/src/classes/CTConstants.cls",
+		"/D/Proga/MavensMateProjects/CT(Sandbox)/src/classes/ArtistAvailabilityTriggerHandler.cls",
+		"/D/Proga/MavensMateProjects/CT(Sandbox)/src/triggers/SetBookingSlotAvailability.trigger",
+		"/D/Proga/MavensMateProjects/CT(Sandbox)/src/classes/AftistAvailabilityHelper.cls",
+		"/D/Proga/MavensMateProjects/CT(Sandbox)/src/classes/Oauth1AuthorizationClient.cls",
+		"/D/Proga/MavensMateProjects/CT(Sandbox)/src/classes/ArtistAvailabilityTriggerHandlerTest.cls",
+		"/D/Proga/MavensMateProjects/CT(Sandbox)/src/classes/AddArtistAvailabilityBatchTest.cls",
+		"/D/Proga/MavensMateProjects/CT(Sandbox)/src/classes/AddArtistAvailabilityBatch.cls",
+		"/D/Proga/MavensMateProjects/LeadWeb(dev)/src/classes/TestBatchRemoveVisits.cls",
+		"/D/Proga/MavensMateProjects/CT(Sandbox)/src/classes/TestDataHelper.cls",
+		"/D/Proga/MavensMateProjects/CT(Sandbox)/src/classes/SetBookingSlotAvailabilityTest.cls",
+		"/D/Proga/MavensMateProjects/CT(Sandbox)/src/classes/CreateChairAvailabilityBatch.cls",
+		"/D/Proga/MavensMateProjects/CT(Sandbox)/src/classes/CloneCancelledBookingSlotsTest.cls",
+		"/D/Proga/MavensMateProjects/CT(Sandbox)/src/classes/ChairAvailabilityHelper.cls",
+		"/C/Users/User/AppData/Roaming/Sublime Text 3/Packages/User/mavensmate.sublime-settings"
+	],
+	"find":
+	{
+		"height": 34.0
+	},
+	"find_in_files":
+	{
+		"height": 90.0,
+		"where_history":
+		[
+			"D:\\Proga\\MavensMateProjects\\CT(Sandbox)\\src\\classes",
+			"D:\\Proga\\MavensMateProjects\\CT(Sandbox)\\src"
+		]
+	},
+	"find_state":
+	{
+		"case_sensitive": false,
+		"find_history":
+		[
+			"addCategories",
+			"removedAccCategories",
+			"cntAccountMap",
+			"accountIds",
+			"accCntIds",
+			"contactMap",
+			"newMapContact",
+			"oldContactMap",
+			"accountIds",
+			"sortedAccCategories",
+			"Contact.",
+			"Contact",
+			"Contact.Nam",
+			"allNetworks",
+			"selectedNetworks",
+			"editedNetworks",
+			"additional",
+			"editNet",
+			"selectedNetworks",
+			"contact",
+			"&& formSubmitted",
+			"formSubmitted",
+			"COntinue(",
+			"prevForm",
+			"submit",
+			"Continue",
+			"newCaseForm",
+			"save and c",
+			"saveAndCOn",
+			"Continue(",
+			"red:",
+			"&& newCaseForm.$submitted",
+			"saveAndContinue",
+			"formSubmitted",
+			"novalidate=\"true\"",
+			"Continue(",
+			"$scope.su",
+			"Continue",
+			"secondFormSubmitted",
+			"CurrentForm =",
+			"CurrentForm",
+			"saveAndContinue",
+			"secondFormSubmitted =",
+			"secondFormSu",
+			"secondForm",
+			"<for",
+			"submit",
+			"save and c",
+			"Save and",
+			"save and",
+			"newCaseForm",
+			"$scope.newCaseForm",
+			"newCaseForm",
+			"saveAndContinue",
+			"secondForm.",
+			"secondForm",
+			"isBl",
+			"scheduleBatch",
+			"yourBookingsSlots",
+			"yourBookingsSlotsMap",
+			"checkTimeAAValidations",
+			"checkTimeValidations",
+			"checkTimeAAValidations",
+			"checkTimeValidations",
+			"checkTimeAAValidations",
+			"checkTimeAAValidations ",
+			"clearParentId",
+			"clearParentIdOfEmptyServices",
+			"clearServicesInParentFields",
+			"check",
+			"checkWorkingHours",
+			"addError",
+			"cha",
+			"checkWorkingHours",
+			"addError",
+			"checkTimeAAValidations",
+			"fillBookingSlotsIdSetDefault",
+			"clearParentId",
+			"artistAvailabilities",
+			"bookRecordsByService",
+			"bookRecordsByService\n",
+			"checkTimeAAValidations",
+			"checkTimeValidations",
+			"addError",
+			"updateBookingSlots",
+			"createBookingSlots2",
+			"checkTimeValidations",
+			"createBookingSlots2",
+			"artistAvailabilityWrapperList",
+			"artistAvailabilityWrapperList\n",
+			"checkTimeValidations",
+			"newArtistAvailability",
+			"update"
+		],
+		"highlight": true,
+		"in_selection": false,
+		"preserve_case": false,
+		"regex": false,
+		"replace_history":
+		[
+			"selectedContacts",
+			"newCaseForm.",
+			""
+		],
+		"reverse": false,
+		"show_context": true,
+		"use_buffer2": true,
+		"whole_word": false,
+		"wrap": true
+	},
+	"groups":
+	[
+		{
+			"selected": 4,
+			"sheets":
+			[
+				{
+					"buffer": 0,
+					"file": "src/pages/AccountDetail.page",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 5674,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								797,
+								797
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/MavensMate/sublime/lang/Visualforce.sublime-syntax"
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 6,
+					"type": "text"
+				},
+				{
+					"buffer": 1,
+					"file": "src/classes/AccountExtension.cls",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 5884,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								5002,
+								5002
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/MavensMate/sublime/lang/Apex.sublime-syntax",
+							"tab_size": 4,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 1443.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 5,
+					"type": "text"
+				},
+				{
+					"buffer": 2,
+					"file": "src/triggers/AccountContactTrigger.trigger",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 405,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								405,
+								53
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/MavensMate/sublime/lang/Apex.sublime-syntax",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 4,
+					"type": "text"
+				},
+				{
+					"buffer": 3,
+					"file": "src/classes/AccountContactTriggerHandler.cls",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 8881,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								4062,
+								4062
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/MavensMate/sublime/lang/Apex.sublime-syntax"
+						},
+						"translation.x": 0.0,
+						"translation.y": 921.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 1,
+					"type": "text"
+				},
+				{
+					"buffer": 4,
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 864,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								864,
+								864
+							]
+						],
+						"settings":
+						{
+							"auto_indent": false,
+							"syntax": "Packages/Text/Plain text.tmLanguage",
+							"tab_width": 2,
+							"word_wrap": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 0,
+					"type": "text"
+				},
+				{
+					"buffer": 5,
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 7755,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								535,
+								535
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/MavensMate/sublime/lang/Apex.sublime-syntax",
+							"tab_size": 4,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 3,
+					"type": "text"
+				},
+				{
+					"buffer": 6,
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 9050,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								9050,
+								9050
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/MavensMate/sublime/lang/Apex.sublime-syntax",
+							"tab_size": 4,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 1945.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 2,
+					"type": "text"
+				}
+			]
+		}
+	],
+	"incremental_find":
+	{
+		"height": 21.0
+	},
+	"input":
+	{
+		"height": 31.0
+	},
+	"layout":
+	{
+		"cells":
+		[
+			[
+				0,
+				0,
+				1,
+				1
+			]
+		],
+		"cols":
+		[
+			0.0,
+			1.0
+		],
+		"rows":
+		[
+			0.0,
+			1.0
+		]
+	},
+	"menu_visible": true,
+	"output.MavensMate-OutputPanel":
+	{
+		"height": 210.0
+	},
+	"output.find_results":
+	{
+		"height": 0.0
+	},
+	"pinned_build_system": "",
+	"project": "Parx Test.sublime-project",
+	"replace":
+	{
+		"height": 62.0
+	},
+	"save_all_on_build": true,
+	"select_file":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"select_project":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"select_symbol":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"selected_group": 0,
+	"settings":
+	{
+	},
+	"show_minimap": false,
+	"show_open_files": false,
+	"show_tabs": true,
+	"side_bar_visible": true,
+	"side_bar_width": 50.0,
+	"status_bar_visible": true,
+	"template_settings":
+	{
+	}
+}
